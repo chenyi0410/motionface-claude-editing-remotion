@@ -12,3 +12,13 @@
 - 本地渲染文件约 10.2 MB，渲染输出目录通过 `.gitignore` 排除。
 
 本记录证明源码可运行并产出完整视频，不代表与参考片逐像素相同。参考视频与签名地址没有进入仓库。
+
+## GitHub 与 Motionface
+
+- 仓库：`https://github.com/chenyi0410/motionface-claude-editing-remotion`。
+- GitHub 返回 `visibility: PUBLIC`，默认分支 `main`。
+- 推送后通过 `git ls-remote origin refs/heads/main` 核对远端与本地提交一致。
+- 对该片段的 repository REST 接口执行一次 POST，返回 HTTP 200。
+- 响应的 `recording_id` 为 `e3ee409a-50f7-4b4a-af27-288226e47a57`，`github_url` 为上述仓库根地址；两项均与目标一致。
+- 未调用任何删除或解绑接口。
+- 凭证与签名地址扫描通过；仓库只包含源码、锁文件、文档、预览图与提取音轨。
