@@ -1,0 +1,7 @@
+node_modules/
+out/
+.remotion/
+*.log
+.env*
+reference.mp4
+verification.local.json
