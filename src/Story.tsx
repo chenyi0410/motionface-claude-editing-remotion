@@ -1,99 +1,1337 @@
-import React, {useEffect, useState} from 'react';
-import {AbsoluteFill, Audio, cancelRender, continueRender, delayRender, interpolate, staticFile, useCurrentFrame} from 'remotion';
+import React, { useEffect, useState } from "react";
+import {
+  AbsoluteFill,
+  Audio,
+  cancelRender,
+  continueRender,
+  delayRender,
+  interpolate,
+  staticFile,
+  useCurrentFrame,
+} from "remotion";
 
 // Everything except the supplied soundtrack is built from editable vector shapes.
-const ink = '#302c29', paper = '#f6f3e9', coral = '#cf7462', mint = '#afd8cd';
+const ink = "#302c29",
+  paper = "#f6f3e9",
+  coral = "#cf7462",
+  mint = "#afd8cd";
 const ease = (n: number) => n * n * (3 - 2 * n);
-const mix = (t: number, a: number, b: number, x: number, y: number) => interpolate(t, [a, b], [x, y], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp', easing: ease});
-const Text: React.FC<{x: number; y: number; children: React.ReactNode; size?: number; fill?: string; anchor?: 'middle' | 'start'; bold?: boolean}> = ({x,y,children,size=18,fill=ink,anchor='start',bold=false}) => <text x={x} y={y} fill={fill} fontSize={size} textAnchor={anchor} fontWeight={bold?700:400}>{children}</text>;
-const Box: React.FC<{x:number;y:number;w:number;h:number;fill?:string;r?:number}> = ({x,y,w,h,fill=paper,r=8}) => <><rect x={x+1.4} y={y+1} width={w} height={h} rx={r} fill="none" stroke={ink} strokeWidth="1" opacity=".35"/><rect x={x} y={y} width={w} height={h} rx={r} fill={fill} stroke={ink} strokeWidth="2.4"/></>;
+const mix = (t: number, a: number, b: number, x: number, y: number) =>
+  interpolate(t, [a, b], [x, y], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+    easing: ease,
+  });
+const Text: React.FC<{
+  x: number;
+  y: number;
+  children: React.ReactNode;
+  size?: number;
+  fill?: string;
+  anchor?: "middle" | "start";
+  bold?: boolean;
+}> = ({
+  x,
+  y,
+  children,
+  size = 18,
+  fill = ink,
+  anchor = "start",
+  bold = false,
+}) => (
+  <text
+    x={x}
+    y={y}
+    fill={fill}
+    fontSize={size}
+    textAnchor={anchor}
+    fontWeight={bold ? 700 : 400}
+  >
+    {children}
+  </text>
+);
+const Box: React.FC<{
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  fill?: string;
+  r?: number;
+}> = ({ x, y, w, h, fill = paper, r = 8 }) => (
+  <>
+    <rect
+      x={x + 1.4}
+      y={y + 1}
+      width={w}
+      height={h}
+      rx={r}
+      fill="none"
+      stroke={ink}
+      strokeWidth="1"
+      opacity=".35"
+    />
+    <rect
+      x={x}
+      y={y}
+      width={w}
+      height={h}
+      rx={r}
+      fill={fill}
+      stroke={ink}
+      strokeWidth="2.4"
+    />
+  </>
+);
 
-const Star: React.FC<{x:number;y:number;s?:number;color?:string}> = ({x,y,s=10,color='#f6d76d'}) => <path transform={`translate(${x} ${y}) scale(${s/10})`} d="M0,-10 3,-3 10,-3 5,2 7,10 0,6 -7,10 -5,2 -10,-3 -3,-3Z" fill={color} stroke={ink} strokeWidth="1.2"/>;
+const Star: React.FC<{ x: number; y: number; s?: number; color?: string }> = ({
+  x,
+  y,
+  s = 10,
+  color = "#f6d76d",
+}) => (
+  <path
+    transform={`translate(${x} ${y}) scale(${s / 10})`}
+    d="M0,-10 3,-3 10,-3 5,2 7,10 0,6 -7,10 -5,2 -10,-3 -3,-3Z"
+    fill={color}
+    stroke={ink}
+    strokeWidth="1.2"
+  />
+);
 
-const Bot: React.FC<{x:number;y:number;scale?:number;happy?:boolean;arm?:[number,number];dance?:number}> = ({x,y,scale=1,happy=false,arm,dance=0}) => <g transform={`translate(${x} ${y}) rotate(${Math.sin(dance)*5}) scale(${scale})`}>
-  {arm && <><path d={`M22 2 Q${(arm[0]-x)/scale*.6} ${(arm[1]-y)/scale+35} ${(arm[0]-x)/scale} ${(arm[1]-y)/scale}`} fill="none" stroke={ink} strokeWidth="14" strokeLinecap="round"/><path d={`M22 2 Q${(arm[0]-x)/scale*.6} ${(arm[1]-y)/scale+35} ${(arm[0]-x)/scale} ${(arm[1]-y)/scale}`} fill="none" stroke={coral} strokeWidth="9" strokeLinecap="round"/><circle cx={(arm[0]-x)/scale} cy={(arm[1]-y)/scale} r="8" fill={coral} stroke={ink} strokeWidth="2"/></>}
-  {!arm && <><path d="M-41,10 Q-68,0 -62,-10 M41,10 Q65,-7 56,-16" fill="none" stroke={ink} strokeWidth="8" strokeLinecap="round"/><path d="M-41,10 Q-68,0 -62,-10 M41,10 Q65,-7 56,-16" fill="none" stroke={coral} strokeWidth="5" strokeLinecap="round"/></>}
-  <path d="M-27,29 v25 h10 v-24 M17,29 v25 h10 v-24" fill={coral} stroke={ink} strokeWidth="2.5"/>
-  <path d="M-43,-29 Q-46,-32 -44,-24 L-44,29 Q0,32 44,29 L44,-28 Q0,-32 -43,-29Z" fill={coral} stroke={ink} strokeWidth="3"/>
-  <path d="M-39,-24 h75" stroke="#ebaa88" strokeWidth="3" opacity=".7"/>
-  {happy ? <path d="M-24,-4 l6,-6 6,6 M12,-4 l6,-6 6,6 M-7,9 q7,12 14,0" fill="none" stroke={ink} strokeWidth="3" strokeLinecap="round"/> : <><rect x="-23" y="-12" width="7" height="15" rx="3.5" fill={ink}/><rect x="15" y="-12" width="7" height="15" rx="3.5" fill={ink}/><circle cx="-20" cy="-9" r="1.5" fill="white"/><circle cx="18" cy="-9" r="1.5" fill="white"/><path d="M-4,11 h8" stroke={ink} strokeWidth="2"/></>}
-</g>;
+const Bot: React.FC<{
+  x: number;
+  y: number;
+  scale?: number;
+  happy?: boolean;
+  arm?: [number, number];
+  dance?: number;
+}> = ({ x, y, scale = 1, happy = false, arm, dance = 0 }) => (
+  <g
+    transform={`translate(${x} ${y}) rotate(${Math.sin(dance) * 5}) scale(${scale})`}
+  >
+    {arm && (
+      <>
+        <path
+          d={`M22 2 Q${((arm[0] - x) / scale) * 0.6} ${(arm[1] - y) / scale + 35} ${(arm[0] - x) / scale} ${(arm[1] - y) / scale}`}
+          fill="none"
+          stroke={ink}
+          strokeWidth="14"
+          strokeLinecap="round"
+        />
+        <path
+          d={`M22 2 Q${((arm[0] - x) / scale) * 0.6} ${(arm[1] - y) / scale + 35} ${(arm[0] - x) / scale} ${(arm[1] - y) / scale}`}
+          fill="none"
+          stroke={coral}
+          strokeWidth="9"
+          strokeLinecap="round"
+        />
+        <circle
+          cx={(arm[0] - x) / scale}
+          cy={(arm[1] - y) / scale}
+          r="8"
+          fill={coral}
+          stroke={ink}
+          strokeWidth="2"
+        />
+      </>
+    )}
+    {!arm && (
+      <>
+        <path
+          d="M-41,10 Q-68,0 -62,-10 M41,10 Q65,-7 56,-16"
+          fill="none"
+          stroke={ink}
+          strokeWidth="8"
+          strokeLinecap="round"
+        />
+        <path
+          d="M-41,10 Q-68,0 -62,-10 M41,10 Q65,-7 56,-16"
+          fill="none"
+          stroke={coral}
+          strokeWidth="5"
+          strokeLinecap="round"
+        />
+      </>
+    )}
+    <path
+      d="M-27,29 v25 h10 v-24 M17,29 v25 h10 v-24"
+      fill={coral}
+      stroke={ink}
+      strokeWidth="2.5"
+    />
+    <path
+      d="M-43,-29 Q-46,-32 -44,-24 L-44,29 Q0,32 44,29 L44,-28 Q0,-32 -43,-29Z"
+      fill={coral}
+      stroke={ink}
+      strokeWidth="3"
+    />
+    <path d="M-39,-24 h75" stroke="#ebaa88" strokeWidth="3" opacity=".7" />
+    {happy ? (
+      <path
+        d="M-24,-4 l6,-6 6,6 M12,-4 l6,-6 6,6 M-7,9 q7,12 14,0"
+        fill="none"
+        stroke={ink}
+        strokeWidth="3"
+        strokeLinecap="round"
+      />
+    ) : (
+      <>
+        <rect x="-23" y="-12" width="7" height="15" rx="3.5" fill={ink} />
+        <rect x="15" y="-12" width="7" height="15" rx="3.5" fill={ink} />
+        <circle cx="-20" cy="-9" r="1.5" fill="white" />
+        <circle cx="18" cy="-9" r="1.5" fill="white" />
+        <path d="M-4,11 h8" stroke={ink} strokeWidth="2" />
+      </>
+    )}
+  </g>
+);
 
-type SceneKind = 'night' | 'ramen' | 'cat' | 'dance';
-const Scene: React.FC<{kind:SceneKind;t:number}> = ({kind,t}) => <svg viewBox="0 0 200 320" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
-  {kind==='night' && <><rect width="200" height="320" fill="#333463"/><rect width="200" height="225" fill="url(#nightSky)"/>{Array.from({length:35},(_,i)=><circle key={i} cx={(i*47+17)%200} cy={(i*31+9)%213} r={i%4===0?1.8:.8} fill="#f9e9b6" opacity={.45+.35*Math.sin(t*2+i)}/>)}<path d="M156,42 a24,24 0 1,0 17,35 a25,25 0 0,1 -17,-35" fill="#efce64" stroke={ink} strokeWidth="2"/>{[0,1,2,3,4,5,6].map(i=><g key={i}><rect x={i*33-8} y={185+(i*17)%50} width="34" height="150" fill={i%2?'#272e49':'#3e4262'} stroke={ink} strokeWidth="2"/>{Array.from({length:18},(_,j)=><rect key={j} x={i*33-3+(j%3)*9} y={192+(i*17)%50+Math.floor(j/3)*17} width="4" height="8" fill={j%4===0?'#626174':'#eac565'}/>)}</g>)}<Star x={42} y={74}/><Star x={96} y={155} s={14}/></>}
-  {kind==='ramen' && <><rect width="200" height="320" fill="#f5dfa2"/><path d="M0,248 L200,226 V320 H0Z" fill="#e7bb81"/>{[0,1,2,3].map(i=><path key={i} d={`M0 ${260+i*18} l200,-22`} stroke="#c99a65" fill="none" opacity=".6"/>)}<rect x="0" y="0" width="200" height="50" fill="#3f4379" stroke={ink} strokeWidth="2"/><Text x={100} y={36} size={27} fill="white" anchor="middle" bold>• 拉 面 •</Text><path d="M24 196 Q33 278 105 277 Q169 270 182 192Z" fill="#fffbdf" stroke={ink} strokeWidth="4"/><ellipse cx="103" cy="193" rx="80" ry="35" fill="#fcf3c8" stroke={ink} strokeWidth="4"/><ellipse cx="103" cy="192" rx="69" ry="25" fill="#ba7845" stroke={ink} strokeWidth="2"/><path d="M35 225 Q108 261 172 222" stroke="#d65b66" strokeWidth="12" fill="none"/><path d="M41 223 l5 10 8 -3 2 11 8 -3 3 10 8 -5 M100 240 l4 -8 10 5 3 -9 10 3 4 -10 10 3 3 -10" fill="none" stroke="#ffedcc" strokeWidth="3"/>
-  <ellipse cx="59" cy="190" rx="18" ry="11" fill="#fbe6b1" stroke={ink} strokeWidth="2"/><ellipse cx="59" cy="190" rx="9" ry="7" fill="#e5ad36"/><ellipse cx="139" cy="200" rx="16" ry="10" fill="#fff1dd" stroke={ink} strokeWidth="2"/><path d="M130 200 q15 -12 17 0 q-7 8 -10 0" fill="none" stroke="#d1658c" strokeWidth="3"/><rect x="125" y="152" width="30" height="30" fill="#3f593f" stroke={ink} strokeWidth="2"/>{[0,1,2,3].map(i=><path key={i} d={`M${130+i*6} 154 v26`} stroke="#769062"/>)}<path d="M105,177 Q78,142 100,113 L188,37 M112,181 Q93,141 107,116 L194,44" fill="none" stroke={ink} strokeWidth="5"/><path d="M105,177 Q78,142 100,113 L188,37 M112,181 Q93,141 107,116 L194,44" fill="none" stroke="#d9b579" strokeWidth="2.5"/>{[0,1,2,3,4].map(i=><path key={i} d={`M${99+i*4},119 Q${87+i*6},155 ${94+i*6},195`} fill="none" stroke="#f9e5a4" strokeWidth="3"/>)}<path d={`M62,146 q-20,-18 0,-33 q14,-13 1,-28 M79,126 q-15,-14 0,-27`} fill="none" stroke="white" strokeWidth="4" opacity={.4+.2*Math.sin(t*3)}/></>}
-  {kind==='cat' && <><rect width="200" height="320" fill="#b9dfcf"/>{Array.from({length:50},(_,i)=><circle key={i} cx={(i*37)%200} cy={(i*29)%320} r="2" fill="#e0f2d9"/>)}<path d="M43,173 L40,105 71,123 Q111,103 145,124 L169,98 164,170" fill="#cb8c48" stroke={ink} strokeWidth="3"/><ellipse cx="104" cy="244" rx="61" ry="79" fill="#ce8d46" stroke={ink} strokeWidth="3"/><ellipse cx="103" cy="262" rx="38" ry="49" fill="#fffbec"/><ellipse cx="103" cy="166" rx="63" ry="53" fill="#d99251" stroke={ink} strokeWidth="3"/><path d="M45,174 Q105,135 165,173 Q157,213 103,217 Q53,212 45,174" fill="#fff8e5"/><path d="M71,162 q8,-11 15,0 M122,162 q8,-11 15,0 M92,184 q11,11 22,0" fill="none" stroke={ink} strokeWidth="3"/><path d="M99 174 l8 0 -4 5Z" fill={ink}/><ellipse cx="66" cy="184" rx="10" ry="6" fill="#ed9cac"/><ellipse cx="140" cy="184" rx="10" ry="6" fill="#ed9cac"/><circle cx="105" cy="220" r="8" fill="#edca49" stroke={ink} strokeWidth="2"/>{[0,1,2].map(i=><Text key={i} x={36+i*63} y={84-i%2*40} size={24} fill="#df84a3">♥</Text>)}</>}
-  {kind==='dance' && <><rect width="200" height="320" fill="url(#clubSky)"/><path d="M0 320 L66 220 H136 L200 320Z" fill="#393e69"/>{Array.from({length:20},(_,i)=><path key={i} d={`M${(i%5)*40} ${250+Math.floor(i/5)*20} l30,-3 15,13 -38,4Z`} fill={['#677cb8','#ac86ba','#cabb78','#5568a2'][i%4]}/>)}<path d="M100,32 L0,275 L55,295Z" fill="#dfb2e8" opacity=".19"/><path d="M100,32 L200,275 L145,295Z" fill="#f3dea5" opacity=".17"/><path d="M100 0 v33" stroke={ink} strokeWidth="2"/><circle cx="100" cy="41" r="13" fill="#e4e0de" stroke={ink} strokeWidth="2"/>{[0,1,2].map(i=><path key={i} d={`M${91+i*6} 30 q-6 12 0 23`} stroke="#9895b7" fill="none"/>)}<path d="M87 39 h26 M89 46 h22" stroke="#9794b0"/><Bot x={100} y={239+Math.sin(t*8)*5} scale={.72} happy dance={t*7}/>{[0,1,2,3,4].map(i=><circle key={i} cx={35+i*33} cy={80+(i*37)%110} r="3" fill="#ffe9b0" opacity={.5+.5*Math.sin(i+t*4)}/>)}</>}
-</svg>;
+type SceneKind = "night" | "ramen" | "cat" | "dance";
+const Scene: React.FC<{ kind: SceneKind; t: number }> = ({ kind, t }) => (
+  <svg
+    viewBox="0 0 200 320"
+    width="100%"
+    height="100%"
+    preserveAspectRatio="xMidYMid slice"
+  >
+    {kind === "night" && (
+      <>
+        <rect width="200" height="320" fill="#333463" />
+        <rect width="200" height="225" fill="url(#nightSky)" />
+        {Array.from({ length: 35 }, (_, i) => (
+          <circle
+            key={i}
+            cx={(i * 47 + 17) % 200}
+            cy={(i * 31 + 9) % 213}
+            r={i % 4 === 0 ? 1.8 : 0.8}
+            fill="#f9e9b6"
+            opacity={0.45 + 0.35 * Math.sin(t * 2 + i)}
+          />
+        ))}
+        <path
+          d="M156,42 a24,24 0 1,0 17,35 a25,25 0 0,1 -17,-35"
+          fill="#efce64"
+          stroke={ink}
+          strokeWidth="2"
+        />
+        {[0, 1, 2, 3, 4, 5, 6].map((i) => (
+          <g key={i}>
+            <rect
+              x={i * 33 - 8}
+              y={185 + ((i * 17) % 50)}
+              width="34"
+              height="150"
+              fill={i % 2 ? "#272e49" : "#3e4262"}
+              stroke={ink}
+              strokeWidth="2"
+            />
+            {Array.from({ length: 18 }, (_, j) => (
+              <rect
+                key={j}
+                x={i * 33 - 3 + (j % 3) * 9}
+                y={192 + ((i * 17) % 50) + Math.floor(j / 3) * 17}
+                width="4"
+                height="8"
+                fill={j % 4 === 0 ? "#626174" : "#eac565"}
+              />
+            ))}
+          </g>
+        ))}
+        <Star x={42} y={74} />
+        <Star x={96} y={155} s={14} />
+      </>
+    )}
+    {kind === "ramen" && (
+      <>
+        <rect width="200" height="320" fill="#f5dfa2" />
+        <path d="M0,248 L200,226 V320 H0Z" fill="#e7bb81" />
+        {[0, 1, 2, 3].map((i) => (
+          <path
+            key={i}
+            d={`M0 ${260 + i * 18} l200,-22`}
+            stroke="#c99a65"
+            fill="none"
+            opacity=".6"
+          />
+        ))}
+        <rect
+          x="0"
+          y="0"
+          width="200"
+          height="50"
+          fill="#3f4379"
+          stroke={ink}
+          strokeWidth="2"
+        />
+        <Text x={100} y={36} size={27} fill="white" anchor="middle" bold>
+          • 拉 面 •
+        </Text>
+        <path
+          d="M24 196 Q33 278 105 277 Q169 270 182 192Z"
+          fill="#fffbdf"
+          stroke={ink}
+          strokeWidth="4"
+        />
+        <ellipse
+          cx="103"
+          cy="193"
+          rx="80"
+          ry="35"
+          fill="#fcf3c8"
+          stroke={ink}
+          strokeWidth="4"
+        />
+        <ellipse
+          cx="103"
+          cy="192"
+          rx="69"
+          ry="25"
+          fill="#ba7845"
+          stroke={ink}
+          strokeWidth="2"
+        />
+        <path
+          d="M35 225 Q108 261 172 222"
+          stroke="#d65b66"
+          strokeWidth="12"
+          fill="none"
+        />
+        <path
+          d="M41 223 l5 10 8 -3 2 11 8 -3 3 10 8 -5 M100 240 l4 -8 10 5 3 -9 10 3 4 -10 10 3 3 -10"
+          fill="none"
+          stroke="#ffedcc"
+          strokeWidth="3"
+        />
+        <ellipse
+          cx="59"
+          cy="190"
+          rx="18"
+          ry="11"
+          fill="#fbe6b1"
+          stroke={ink}
+          strokeWidth="2"
+        />
+        <ellipse cx="59" cy="190" rx="9" ry="7" fill="#e5ad36" />
+        <ellipse
+          cx="139"
+          cy="200"
+          rx="16"
+          ry="10"
+          fill="#fff1dd"
+          stroke={ink}
+          strokeWidth="2"
+        />
+        <path
+          d="M130 200 q15 -12 17 0 q-7 8 -10 0"
+          fill="none"
+          stroke="#d1658c"
+          strokeWidth="3"
+        />
+        <rect
+          x="125"
+          y="152"
+          width="30"
+          height="30"
+          fill="#3f593f"
+          stroke={ink}
+          strokeWidth="2"
+        />
+        {[0, 1, 2, 3].map((i) => (
+          <path key={i} d={`M${130 + i * 6} 154 v26`} stroke="#769062" />
+        ))}
+        <path
+          d="M105,177 Q78,142 100,113 L188,37 M112,181 Q93,141 107,116 L194,44"
+          fill="none"
+          stroke={ink}
+          strokeWidth="5"
+        />
+        <path
+          d="M105,177 Q78,142 100,113 L188,37 M112,181 Q93,141 107,116 L194,44"
+          fill="none"
+          stroke="#d9b579"
+          strokeWidth="2.5"
+        />
+        {[0, 1, 2, 3, 4].map((i) => (
+          <path
+            key={i}
+            d={`M${99 + i * 4},119 Q${87 + i * 6},155 ${94 + i * 6},195`}
+            fill="none"
+            stroke="#f9e5a4"
+            strokeWidth="3"
+          />
+        ))}
+        <path
+          d={`M62,146 q-20,-18 0,-33 q14,-13 1,-28 M79,126 q-15,-14 0,-27`}
+          fill="none"
+          stroke="white"
+          strokeWidth="4"
+          opacity={0.4 + 0.2 * Math.sin(t * 3)}
+        />
+      </>
+    )}
+    {kind === "cat" && (
+      <>
+        <rect width="200" height="320" fill="#b9dfcf" />
+        {Array.from({ length: 50 }, (_, i) => (
+          <circle
+            key={i}
+            cx={(i * 37) % 200}
+            cy={(i * 29) % 320}
+            r="2"
+            fill="#e0f2d9"
+          />
+        ))}
+        <path
+          d="M43,173 L40,105 71,123 Q111,103 145,124 L169,98 164,170"
+          fill="#cb8c48"
+          stroke={ink}
+          strokeWidth="3"
+        />
+        <ellipse
+          cx="104"
+          cy="244"
+          rx="61"
+          ry="79"
+          fill="#ce8d46"
+          stroke={ink}
+          strokeWidth="3"
+        />
+        <ellipse cx="103" cy="262" rx="38" ry="49" fill="#fffbec" />
+        <ellipse
+          cx="103"
+          cy="166"
+          rx="63"
+          ry="53"
+          fill="#d99251"
+          stroke={ink}
+          strokeWidth="3"
+        />
+        <path
+          d="M45,174 Q105,135 165,173 Q157,213 103,217 Q53,212 45,174"
+          fill="#fff8e5"
+        />
+        <path
+          d="M71,162 q8,-11 15,0 M122,162 q8,-11 15,0 M92,184 q11,11 22,0"
+          fill="none"
+          stroke={ink}
+          strokeWidth="3"
+        />
+        <path d="M99 174 l8 0 -4 5Z" fill={ink} />
+        <ellipse cx="66" cy="184" rx="10" ry="6" fill="#ed9cac" />
+        <ellipse cx="140" cy="184" rx="10" ry="6" fill="#ed9cac" />
+        <circle
+          cx="105"
+          cy="220"
+          r="8"
+          fill="#edca49"
+          stroke={ink}
+          strokeWidth="2"
+        />
+        {[0, 1, 2].map((i) => (
+          <Text
+            key={i}
+            x={36 + i * 63}
+            y={84 - (i % 2) * 40}
+            size={24}
+            fill="#df84a3"
+          >
+            ♥
+          </Text>
+        ))}
+      </>
+    )}
+    {kind === "dance" && (
+      <>
+        <rect width="200" height="320" fill="url(#clubSky)" />
+        <path d="M0 320 L66 220 H136 L200 320Z" fill="#393e69" />
+        {Array.from({ length: 20 }, (_, i) => (
+          <path
+            key={i}
+            d={`M${(i % 5) * 40} ${250 + Math.floor(i / 5) * 20} l30,-3 15,13 -38,4Z`}
+            fill={["#677cb8", "#ac86ba", "#cabb78", "#5568a2"][i % 4]}
+          />
+        ))}
+        <path d="M100,32 L0,275 L55,295Z" fill="#dfb2e8" opacity=".19" />
+        <path d="M100,32 L200,275 L145,295Z" fill="#f3dea5" opacity=".17" />
+        <path d="M100 0 v33" stroke={ink} strokeWidth="2" />
+        <circle
+          cx="100"
+          cy="41"
+          r="13"
+          fill="#e4e0de"
+          stroke={ink}
+          strokeWidth="2"
+        />
+        {[0, 1, 2].map((i) => (
+          <path
+            key={i}
+            d={`M${91 + i * 6} 30 q-6 12 0 23`}
+            stroke="#9895b7"
+            fill="none"
+          />
+        ))}
+        <path d="M87 39 h26 M89 46 h22" stroke="#9794b0" />
+        <Bot
+          x={100}
+          y={239 + Math.sin(t * 8) * 5}
+          scale={0.72}
+          happy
+          dance={t * 7}
+        />
+        {[0, 1, 2, 3, 4].map((i) => (
+          <circle
+            key={i}
+            cx={35 + i * 33}
+            cy={80 + ((i * 37) % 110)}
+            r="3"
+            fill="#ffe9b0"
+            opacity={0.5 + 0.5 * Math.sin(i + t * 4)}
+          />
+        ))}
+      </>
+    )}
+  </svg>
+);
 
-const Thumb: React.FC<{x:number;y:number;w:number;h:number;kind:SceneKind;t:number;label?:string}> = ({x,y,w,h,kind,t,label}) => <g><svg x={x} y={y} width={w} height={h} viewBox={`0 0 ${w} ${h}`}><Scene kind={kind} t={t}/></svg><rect x={x} y={y} width={w} height={h} rx="5" fill="none" stroke={ink} strokeWidth="2.4"/>{label&&<><rect x={x+4} y={y+3} width={Math.min(w-8,70)} height="15" rx="5" fill={paper}/><Text x={x+8} y={y+15} size={12}>{label}</Text></>}</g>;
+const Thumb: React.FC<{
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  kind: SceneKind;
+  t: number;
+  label?: string;
+}> = ({ x, y, w, h, kind, t, label }) => (
+  <g>
+    <svg x={x} y={y} width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
+      <Scene kind={kind} t={t} />
+    </svg>
+    <rect
+      x={x}
+      y={y}
+      width={w}
+      height={h}
+      rx="5"
+      fill="none"
+      stroke={ink}
+      strokeWidth="2.4"
+    />
+    {label && (
+      <>
+        <rect
+          x={x + 4}
+          y={y + 3}
+          width={Math.min(w - 8, 70)}
+          height="15"
+          rx="5"
+          fill={paper}
+        />
+        <Text x={x + 8} y={y + 15} size={12}>
+          {label}
+        </Text>
+      </>
+    )}
+  </g>
+);
 
-const Phone: React.FC<{t:number;kind:SceneKind;transition:boolean;caption:boolean;ending:boolean}> = ({t,kind,transition,caption,ending}) => <g>
-  <Box x={585} y={64} w={216} h={349} fill="#292828" r={27}/><rect x="592" y="68" width="202" height="340" rx="24" fill="#56504c"/>
-  <svg x="596" y="73" width="194" height="326" viewBox="0 0 200 320" style={{borderRadius:20,overflow:'hidden'}}><Scene kind={kind} t={t}/>{caption&&<><text x="100" y="208" textAnchor="middle" fontSize="23" fontWeight="bold" stroke={ink} strokeWidth="5" paintOrder="stroke" fill="#f1cd51">前方高能预警</text></>}{ending&&<text x="100" y="133" textAnchor="middle" fontSize="37" fontWeight="bold" fill="#f0ce5b" stroke={ink} strokeWidth="6" paintOrder="stroke">拿捏了!</text>}{transition&&<path d={`M0 0 L200 0 L${200-mix(t,9.1,10,0,180)} ${mix(t,9.1,10,0,285)}Z`} fill="#fbf8ed" stroke={ink} strokeWidth="2"/>}</svg>
-  <rect x="664" y="76" width="57" height="10" rx="5" fill="#262528"/><circle cx="717" cy="81" r="2" fill="#5a5e78"/><Text x={693} y={434} size={23} anchor="middle">◀  ⏸  ▶</Text>
-</g>;
+const Phone: React.FC<{
+  t: number;
+  kind: SceneKind;
+  transition: boolean;
+  caption: boolean;
+  ending: boolean;
+  final?: boolean;
+}> = ({ t, kind, transition, caption, ending, final = false }) => (
+  <g>
+    <Box x={585} y={64} w={216} h={349} fill="#292828" r={27} />
+    <rect x="592" y="68" width="202" height="340" rx="24" fill="#56504c" />
+    <svg
+      x="596"
+      y="73"
+      width="194"
+      height="326"
+      viewBox="0 0 200 320"
+      style={{ borderRadius: 20, overflow: "hidden" }}
+    >
+      <Scene kind={kind} t={t} />
+      {caption && (
+        <>
+          <text
+            x="100"
+            y="208"
+            textAnchor="middle"
+            fontSize="23"
+            fontWeight="bold"
+            stroke={ink}
+            strokeWidth="5"
+            paintOrder="stroke"
+            fill="#f1cd51"
+          >
+            前方高能预警
+          </text>
+        </>
+      )}
+      {ending && (
+        <text
+          x="100"
+          y="133"
+          textAnchor="middle"
+          fontSize="37"
+          fontWeight="bold"
+          fill="#f0ce5b"
+          stroke={ink}
+          strokeWidth="6"
+          paintOrder="stroke"
+        >
+          拿捏了!
+        </text>
+      )}
+      {transition && (
+        <path
+          d={`M0 0 L200 0 L${200 - mix(t, 9.1, 10, 0, 180)} ${mix(t, 9.1, 10, 0, 285)}Z`}
+          fill="#fbf8ed"
+          stroke={ink}
+          strokeWidth="2"
+        />
+      )}
+    </svg>
+    <rect x="664" y="76" width="57" height="10" rx="5" fill="#262528" />
+    <circle cx="717" cy="81" r="2" fill="#5a5e78" />
+    {!final && (
+      <Text x={693} y={434} size={23} anchor="middle">
+        ◀ ⏸ ▶
+      </Text>
+    )}
+  </g>
+);
 
-const Panel: React.FC<{t:number}> = ({t}) => {
-  const tab=t<6?'素材':t<11?'转场':'文字';
-  const labels=tab==='素材'?['夜景.mp4','拉面.mp4','柴犬.mov','小克蹦迪.mp4']:tab==='转场'?['旋转','翻页','故障','缩放','滑动','溶解']:['前方高能','好耶～','霓虹 NEON'];
-  return <g><Box x={20} y={65} w={266} h={366}/>{['素材','转场','文字'].map((v,i)=><g key={v}><Box x={30+i*82} y={72} w={77} h={30} fill={v===tab?'#ebc967':paper}/><Text x={68+i*82} y={94} anchor="middle" size={19}>{v}</Text></g>)}{tab==='素材'?<>{(['night','ramen','cat','dance'] as SceneKind[]).map((kind,i)=><g key={kind}><Thumb x={34+(i%2)*122} y={116+Math.floor(i/2)*104} w={107} h={71} kind={kind} t={t}/><Text x={88+(i%2)*122} y={203+Math.floor(i/2)*104} anchor="middle" size={15}>{labels[i]}</Text></g>)}{[0,1].map(i=><g key={i}><rect x={34+i*122} y={324} width="107" height="81" fill="none" stroke="#c7c2b9" strokeDasharray="5 3"/><Text x={88+i*122} y={365} anchor="middle" size={34} fill="#b9b6af">+</Text><Text x={88+i*122} y={394} anchor="middle" size={14} fill="#b9b6af">导入素材</Text></g>)}</>:tab==='转场'?labels.map((label,i)=><g key={label}><Box x={34+(i%2)*122} y={115+Math.floor(i/2)*102} w={109} h={70} fill={['#ded8ef','#d7eee3','#f0d1dc','#d7e8ef','#f7eac2','#e5e0d4'][i]}/><Text x={88+(i%2)*122} y={160+Math.floor(i/2)*102} size={35} anchor="middle">{['◎','▤','▣','⊕','➜','▧'][i]}</Text><Text x={88+(i%2)*122} y={201+Math.floor(i/2)*102} size={17} anchor="middle">{label}</Text></g>):labels.map((label,i)=><g key={label}><Box x={34} y={119+i*86} w={236} h={68} fill={i===2?'#32273f':i===1?'#fff4f6':'#fae9a7'}/><Text x={152} y={163+i*86} size={25} anchor="middle" bold fill={i===2?'#e2c8fa':i===1?'#d980a3':ink}>{label}</Text></g>)}</g>;
+const Panel: React.FC<{ t: number }> = ({ t }) => {
+  const tab = t < 6 ? "素材" : t < 11 ? "转场" : "文字";
+  const labels =
+    tab === "素材"
+      ? ["夜景.mp4", "拉面.mp4", "柴犬.mov", "小克蹦迪.mp4"]
+      : tab === "转场"
+        ? ["旋转", "翻页", "故障", "缩放", "滑动", "溶解"]
+        : ["前方高能", "好耶～", "霓虹 NEON"];
+  return (
+    <g>
+      <Box x={20} y={65} w={266} h={366} />
+      {["素材", "转场", "文字"].map((v, i) => (
+        <g key={v}>
+          <Box
+            x={30 + i * 82}
+            y={72}
+            w={77}
+            h={30}
+            fill={v === tab ? "#ebc967" : paper}
+          />
+          <Text x={68 + i * 82} y={94} anchor="middle" size={19}>
+            {v}
+          </Text>
+        </g>
+      ))}
+      {tab === "素材" ? (
+        <>
+          {(["night", "ramen", "cat", "dance"] as SceneKind[]).map(
+            (kind, i) => (
+              <g key={kind}>
+                <Thumb
+                  x={34 + (i % 2) * 122}
+                  y={116 + Math.floor(i / 2) * 104}
+                  w={107}
+                  h={71}
+                  kind={kind}
+                  t={t}
+                />
+                <Text
+                  x={88 + (i % 2) * 122}
+                  y={203 + Math.floor(i / 2) * 104}
+                  anchor="middle"
+                  size={15}
+                >
+                  {labels[i]}
+                </Text>
+              </g>
+            ),
+          )}
+          {[0, 1].map((i) => (
+            <g key={i}>
+              <rect
+                x={34 + i * 122}
+                y={324}
+                width="107"
+                height="81"
+                fill="none"
+                stroke="#c7c2b9"
+                strokeDasharray="5 3"
+              />
+              <Text
+                x={88 + i * 122}
+                y={365}
+                anchor="middle"
+                size={34}
+                fill="#b9b6af"
+              >
+                +
+              </Text>
+              <Text
+                x={88 + i * 122}
+                y={394}
+                anchor="middle"
+                size={14}
+                fill="#b9b6af"
+              >
+                导入素材
+              </Text>
+            </g>
+          ))}
+        </>
+      ) : tab === "转场" ? (
+        labels.map((label, i) => (
+          <g key={label}>
+            <Box
+              x={34 + (i % 2) * 122}
+              y={115 + Math.floor(i / 2) * 102}
+              w={109}
+              h={70}
+              fill={
+                [
+                  "#ded8ef",
+                  "#d7eee3",
+                  "#f0d1dc",
+                  "#d7e8ef",
+                  "#f7eac2",
+                  "#e5e0d4",
+                ][i]
+              }
+            />
+            <Text
+              x={88 + (i % 2) * 122}
+              y={160 + Math.floor(i / 2) * 102}
+              size={35}
+              anchor="middle"
+            >
+              {["◎", "▤", "▣", "⊕", "➜", "▧"][i]}
+            </Text>
+            <Text
+              x={88 + (i % 2) * 122}
+              y={201 + Math.floor(i / 2) * 102}
+              size={17}
+              anchor="middle"
+            >
+              {label}
+            </Text>
+          </g>
+        ))
+      ) : (
+        labels.map((label, i) => (
+          <g key={label}>
+            <Box
+              x={34}
+              y={119 + i * 86}
+              w={236}
+              h={68}
+              fill={i === 2 ? "#32273f" : i === 1 ? "#fff4f6" : "#fae9a7"}
+            />
+            <Text
+              x={152}
+              y={163 + i * 86}
+              size={25}
+              anchor="middle"
+              bold
+              fill={i === 2 ? "#e2c8fa" : i === 1 ? "#d980a3" : ink}
+            >
+              {label}
+            </Text>
+          </g>
+        ))
+      )}
+    </g>
+  );
 };
 
-const Settings: React.FC<{t:number}> = ({t}) => <g><Box x={1062} y={65} w={196} h={366}/><Text x={1078} y={93} size={21}>调整 ✣</Text>{['闪光','饱和度','随机抖动','速度'].map((label,i)=>{
- const v=i===1?mix(t,15,17,.45,.72):i===2?mix(t,17,20,0,.6):i===0?.7:.45;
- return <g key={label}><Text x={1079} y={122+i*74} size={16}>{label}</Text><Text x={1238} y={122+i*74} size={13} anchor="middle">{i===3?'1.0x':`${Math.round(v*100)}%`}</Text><rect x="1080" y={140+i*74} width="162" height="5" rx="2" fill="#e6e1d8" stroke={ink}/><rect x="1080" y={140+i*74} width={162*v} height="5" rx="2" fill="#83c2b4"/><circle cx={1080+162*v} cy={142.5+i*74} r="7" fill={paper} stroke={ink} strokeWidth="1.8"/></g>;
- })}</g>;
+const Settings: React.FC<{ t: number }> = ({ t }) => (
+  <g>
+    <Box x={1062} y={65} w={196} h={366} />
+    <Text x={1078} y={93} size={21}>
+      调整 ✣
+    </Text>
+    {["闪光", "饱和度", "随机抖动", "速度"].map((label, i) => {
+      const v =
+        i === 1
+          ? mix(t, 15, 17, 0.45, 0.72)
+          : i === 2
+            ? mix(t, 17, 20, 0, 0.6)
+            : i === 0
+              ? 0.7
+              : 0.45;
+      return (
+        <g key={label}>
+          <Text x={1079} y={122 + i * 74} size={16}>
+            {label}
+          </Text>
+          <Text x={1238} y={122 + i * 74} size={13} anchor="middle">
+            {i === 3 ? "1.0x" : `${Math.round(v * 100)}%`}
+          </Text>
+          <rect
+            x="1080"
+            y={140 + i * 74}
+            width="162"
+            height="5"
+            rx="2"
+            fill="#e6e1d8"
+            stroke={ink}
+          />
+          <rect
+            x="1080"
+            y={140 + i * 74}
+            width={162 * v}
+            height="5"
+            rx="2"
+            fill="#83c2b4"
+          />
+          <circle
+            cx={1080 + 162 * v}
+            cy={142.5 + i * 74}
+            r="7"
+            fill={paper}
+            stroke={ink}
+            strokeWidth="1.8"
+          />
+        </g>
+      );
+    })}
+  </g>
+);
 
-const Timeline: React.FC<{t:number}> = ({t}) => {
- const clips=[{x:110,w:206,kind:'night',label:'夜景.mp4',at:1.1},{x:316,w:153,kind:'ramen',label:'拉面.mp4',at:2.3},{x:469,w:84,kind:'ramen',label:'',at:3.3},{x:553,w:204,kind:'cat',label:'柴犬.mov',at:4},{x:757,w:237,kind:'dance',label:'小克蹦迪.mp4',at:4.7}] as const;
- const px=110+Math.min(13.8,Math.max(0,t-2)*.6)*72;
- return <g><Box x={20} y={447} w={1238} h={251}/><path d="M88 483 H1250" stroke={ink} strokeWidth="1.4"/>{Array.from({length:29},(_,i)=><g key={i}><path d={`M${110+i*40} 483 v${i%4===0?-16:-8}`} stroke="#89877f"/>{i%4===0&&<Text x={110+i*40} y={462} size={14} anchor="middle">0:{String(i/2).padStart(2,'0')}</Text>}</g>)}{[{y:494,h:31,icon:'T',fill:'#f4e8b6'},{y:540,h:68,icon:'▶',fill:'#d7eee1'},{y:626,h:41,icon:'♪',fill:'#e3dbee'}].map(row=><g key={row.icon}><Box x={32} y={row.y} w={45} h={row.h} fill={row.fill}/><Text x={55} y={row.y+row.h*.67} anchor="middle" size={24} bold>{row.icon}</Text><rect x="92" y={row.y} width="1153" height={row.h} fill="#eeece4"/></g>)}
- {clips.filter(c=>t>=c.at).map(c=><g key={c.x} opacity={mix(t,c.at,c.at+.25,0,1)}>{Array.from({length:Math.ceil(c.w/64)},(_,i)=><Thumb key={i} x={c.x+i*64} y={540} w={Math.min(64,c.w-i*64)} h={68} kind={c.kind} t={t}/>)}<rect x={c.x} y="540" width={c.w} height="68" rx="5" fill="none" stroke={ink} strokeWidth="2.3"/>{c.label&&<><rect x={c.x+4} y="543" width={Math.min(c.w-8,99)} height="15" rx="5" fill={paper}/><Text x={c.x+9} y={555} size={13}>{c.label}</Text></>}</g>)}
- {t>3.7&&<g opacity={mix(t,3.7,4,0,1)}><Box x={110} y={623} w={1130} h={45} fill="#dcd2ef"/><Text x={118} y={638} size={13}>♪ bgm_小克.wav</Text>{Array.from({length:255},(_,i)=>{const h=7+(Math.sin(i*1.72)+1)*8+(Math.sin(i*.31)+1)*4;return <path key={i} d={`M${115+i*4.4} ${650-h/2} v${h}`} stroke="#a092be" strokeWidth="2"/>})}</g>}
- {t>6&&[316,469,553,757].map((x,i)=><g key={x}><circle cx={x} cy="575" r="13" fill={paper} stroke={ink} strokeWidth="2"/><Text x={x} y={582} size={21} anchor="middle" fill={i===0?'#6dbba7':ink}>{i===0?'◎':'◩'}</Text></g>)}
- {t>11&&<g opacity={mix(t,11,11.4,0,1)}><Box x={mix(t,11,12,440,554)} y={497} w={217} h={26} fill="#ebcb69"/><Text x={mix(t,11,12,450,564)} y={516} size={13}>T 前方高能预警</Text></g>}
- {t>20&&Array.from({length:40},(_,i)=><path key={i} d={`M${113+i*25} 676 l7,0 -3.5,7Z`} fill="#e4c773" stroke={ink} strokeWidth=".8"/>)}
- <path d={`M${px} 475 V693`} stroke="#d65364" strokeWidth="2"/><path d={`M${px-8} 457 h16 v13 l-8,9 -8,-9Z`} fill="#d65364" stroke={ink} strokeWidth="1.5"/>
- </g>;
+const Timeline: React.FC<{ t: number }> = ({ t }) => {
+  const clips = [
+    { x: 110, w: 206, kind: "night", label: "夜景.mp4", at: 1.1 },
+    { x: 316, w: 153, kind: "ramen", label: "拉面.mp4", at: 2.3 },
+    { x: 469, w: 84, kind: "ramen", label: "", at: 3.3 },
+    { x: 553, w: 204, kind: "cat", label: "柴犬.mov", at: 4 },
+    { x: 757, w: 237, kind: "dance", label: "小克蹦迪.mp4", at: 4.7 },
+  ] as const;
+  const px = 110 + Math.min(13.8, Math.max(0, t - 2) * 0.6) * 72;
+  return (
+    <g>
+      <Box x={20} y={447} w={1238} h={251} />
+      <path d="M88 483 H1250" stroke={ink} strokeWidth="1.4" />
+      {Array.from({ length: 29 }, (_, i) => (
+        <g key={i}>
+          <path
+            d={`M${110 + i * 40} 483 v${i % 4 === 0 ? -16 : -8}`}
+            stroke="#89877f"
+          />
+          {i % 4 === 0 && (
+            <Text x={110 + i * 40} y={462} size={14} anchor="middle">
+              0:{String(i / 2).padStart(2, "0")}
+            </Text>
+          )}
+        </g>
+      ))}
+      {[
+        { y: 494, h: 31, icon: "T", fill: "#f4e8b6" },
+        { y: 540, h: 68, icon: "▶", fill: "#d7eee1" },
+        { y: 626, h: 41, icon: "♪", fill: "#e3dbee" },
+      ].map((row) => (
+        <g key={row.icon}>
+          <Box x={32} y={row.y} w={45} h={row.h} fill={row.fill} />
+          <Text x={55} y={row.y + row.h * 0.67} anchor="middle" size={24} bold>
+            {row.icon}
+          </Text>
+          <rect x="92" y={row.y} width="1153" height={row.h} fill="#eeece4" />
+        </g>
+      ))}
+      {clips
+        .filter((c) => t >= c.at)
+        .map((c) => (
+          <g key={c.x} opacity={mix(t, c.at, c.at + 0.25, 0, 1)}>
+            {Array.from({ length: Math.ceil(c.w / 64) }, (_, i) => (
+              <Thumb
+                key={i}
+                x={c.x + i * 64}
+                y={540}
+                w={Math.min(64, c.w - i * 64)}
+                h={68}
+                kind={c.kind}
+                t={t}
+              />
+            ))}
+            <rect
+              x={c.x}
+              y="540"
+              width={c.w}
+              height="68"
+              rx="5"
+              fill="none"
+              stroke={ink}
+              strokeWidth="2.3"
+            />
+            {c.label && (
+              <>
+                <rect
+                  x={c.x + 4}
+                  y="543"
+                  width={Math.min(c.w - 8, 99)}
+                  height="15"
+                  rx="5"
+                  fill={paper}
+                />
+                <Text x={c.x + 9} y={555} size={13}>
+                  {c.label}
+                </Text>
+              </>
+            )}
+          </g>
+        ))}
+      {t > 3.7 && (
+        <g opacity={mix(t, 3.7, 4, 0, 1)}>
+          <Box x={110} y={623} w={1130} h={45} fill="#dcd2ef" />
+          <Text x={118} y={638} size={13}>
+            ♪ bgm_小克.wav
+          </Text>
+          {Array.from({ length: 255 }, (_, i) => {
+            const h =
+              7 + (Math.sin(i * 1.72) + 1) * 8 + (Math.sin(i * 0.31) + 1) * 4;
+            return (
+              <path
+                key={i}
+                d={`M${115 + i * 4.4} ${650 - h / 2} v${h}`}
+                stroke="#a092be"
+                strokeWidth="2"
+              />
+            );
+          })}
+        </g>
+      )}
+      {t > 6 &&
+        [316, 469, 553, 757].map((x, i) => (
+          <g key={x}>
+            <circle
+              cx={x}
+              cy="575"
+              r="13"
+              fill={paper}
+              stroke={ink}
+              strokeWidth="2"
+            />
+            <Text
+              x={x}
+              y={582}
+              size={21}
+              anchor="middle"
+              fill={i === 0 ? "#6dbba7" : ink}
+            >
+              {i === 0 ? "◎" : "◩"}
+            </Text>
+          </g>
+        ))}
+      {t > 11 && (
+        <g opacity={mix(t, 11, 11.4, 0, 1)}>
+          <Box
+            x={mix(t, 11, 12, 440, 554)}
+            y={497}
+            w={217}
+            h={26}
+            fill="#ebcb69"
+          />
+          <Text x={mix(t, 11, 12, 450, 564)} y={516} size={13}>
+            T 前方高能预警
+          </Text>
+        </g>
+      )}
+      {t > 20 &&
+        Array.from({ length: 40 }, (_, i) => (
+          <path
+            key={i}
+            d={`M${113 + i * 25} 676 l7,0 -3.5,7Z`}
+            fill="#e4c773"
+            stroke={ink}
+            strokeWidth=".8"
+          />
+        ))}
+      <path d={`M${px} 475 V693`} stroke="#d65364" strokeWidth="2" />
+      <path
+        d={`M${px - 8} 457 h16 v13 l-8,9 -8,-9Z`}
+        fill="#d65364"
+        stroke={ink}
+        strokeWidth="1.5"
+      />
+    </g>
+  );
 };
 
-const Burst: React.FC<{x:number;y:number;children:React.ReactNode;color?:string;size?:number}> = ({x,y,children,color='#90c6b4',size=35}) => <text x={x} y={y} fontSize={size} fontWeight="bold" stroke={ink} strokeWidth="7" strokeLinejoin="round" paintOrder="stroke" fill={color} transform={`rotate(-7 ${x} ${y})`}>{children}</text>;
+const Burst: React.FC<{
+  x: number;
+  y: number;
+  children: React.ReactNode;
+  color?: string;
+  size?: number;
+}> = ({ x, y, children, color = "#90c6b4", size = 35 }) => (
+  <text
+    x={x}
+    y={y}
+    fontSize={size}
+    fontWeight="bold"
+    stroke={ink}
+    strokeWidth="7"
+    strokeLinejoin="round"
+    paintOrder="stroke"
+    fill={color}
+    transform={`rotate(-7 ${x} ${y})`}
+  >
+    {children}
+  </text>
+);
 
 // Piecewise camera targets preserve the source's close-ups and return to the full editor.
-const cameraKeys = [{t:0,z:1,x:0,y:0},{t:5.5,z:1,x:0,y:0},{t:6.8,z:1.43,x:-15,y:-82},{t:10.6,z:1.43,x:-15,y:-82},{t:11.5,z:1,x:0,y:0},{t:14,z:1,x:0,y:0},{t:15.5,z:1.43,x:-548,y:-90},{t:18,z:1.43,x:-548,y:-90},{t:19.5,z:1,x:0,y:0},{t:22,z:1,x:0,y:0},{t:23,z:1.2,x:-250,y:-42},{t:24.8,z:1.2,x:-250,y:-42},{t:26,z:1,x:0,y:0}];
+const cameraKeys = [
+  { t: 0, z: 1, x: 0, y: 0 },
+  { t: 5.5, z: 1, x: 0, y: 0 },
+  { t: 6.8, z: 1.2, x: -15, y: -82 },
+  { t: 10.6, z: 1.2, x: -15, y: -82 },
+  { t: 11.5, z: 1, x: 0, y: 0 },
+  { t: 14, z: 1, x: 0, y: 0 },
+  { t: 15.5, z: 1.2, x: -360, y: -55 },
+  { t: 18, z: 1.2, x: -360, y: -55 },
+  { t: 19.5, z: 1, x: 0, y: 0 },
+  { t: 22, z: 1, x: 0, y: 0 },
+  { t: 23, z: 1.2, x: -250, y: -42 },
+  { t: 24.8, z: 1.2, x: -250, y: -42 },
+  { t: 26, z: 1, x: 0, y: 0 },
+];
 export const EditingStory: React.FC = () => {
- const [fontHandle] = useState(() => delayRender('Loading bundled Chinese lettering'));
- useEffect(() => {
-  const glyphs='小克剪辑最终版打死不改已自动保存素材转场文字夜景拉面柴犬蹦迪导入旋转翻页故障缩放滑动溶解前方高能预警好耶霓虹调整闪光饱和度随机抖动速度已修正空心入网渲染中秒剪完灵感到成片一气呵成拿捏了Opus 5.5 Ctrl+Z';
-  Promise.all([document.fonts.load('500 18px "LXGW WenKai"',glyphs),document.fonts.load('700 24px "LXGW WenKai"',glyphs)]).then(() => continueRender(fontHandle)).catch(cancelRender);
- },[fontHandle]);
- const f=useCurrentFrame(), t=f/30;
- const seg=cameraKeys.findIndex((k,i)=>i<cameraKeys.length-1&&t>=k.t&&t<cameraKeys[i+1].t);
- const a=cameraKeys[seg<0?cameraKeys.length-1:seg], b=cameraKeys[seg<0?cameraKeys.length-1:seg+1];
- const camera={z:a===b?a.z:mix(t,a.t,b.t,a.z,b.z),x:a===b?a.x:mix(t,a.t,b.t,a.x,b.x),y:a===b?a.y:mix(t,a.t,b.t,a.y,b.y)};
- const kind:SceneKind=t<7?'night':t<10.8?'ramen':t<14.5?'cat':t<25.5?'dance':t<27?'night':'dance';
- const bx=t<2?mix(t,.4,1,170,180):t<6?mix(t,2,5,180,210):t<11?200:t<14?mix(t,11,13,210,340):t<19?mix(t,14,16,310,440):t<22?mix(t,19,21,440,730):t<25?mix(t,22,24,730,880):mix(t,25,27,880,1030);
- const by=t<6?mix(t,.6,1.2,190,487):t<11?493:t<14?495:t<19?499:t<22?mix(t,19,21,499,620):t<25?493:624;
- let arm:[number,number]|undefined=t<1.6?[106,125]:t<3?[205,155]:t<6?undefined:t<8?[90,151]:t<10.6?[210,152]:t<12.5?[150,152]:t<14.5?undefined:t<17?[1196,217]:t<19?[1184,292]:t<21?undefined:t<23?[1180,364]:t<25?[1203,30]:undefined;
- const ending=t>=25.5;
- return <AbsoluteFill style={{background:paper,fontFamily:'"LXGW WenKai", KaiTi, STKaiti, serif'}}>
- <Audio src={staticFile('reference-audio.m4a')}/>
- <svg width="1280" height="720" viewBox="0 0 1280 720">
- <defs><linearGradient id="nightSky" x2="0" y2="1"><stop stopColor="#313151"/><stop offset="1" stopColor="#545182"/></linearGradient><linearGradient id="clubSky" x2="0" y2="1"><stop stopColor="#625383"/><stop offset=".6" stopColor="#b17ea7"/><stop offset="1" stopColor="#554a82"/></linearGradient><pattern id="paperGrain" width="17" height="19" patternUnits="userSpaceOnUse"><circle cx="2" cy="5" r=".6" fill="#77715c" opacity=".055"/><circle cx="12" cy="14" r=".5" fill="#77715c" opacity=".05"/></pattern></defs>
- <g transform={`translate(${camera.x} ${camera.y}) scale(${camera.z})`}>
- <Box x={7} y={6} w={1265} h={708} r={12}/><Box x={16} y={14} w={1247} h={31} r={6}/><circle cx="29" cy="29" r="4" fill="#d4756b" stroke={ink}/><circle cx="42" cy="29" r="4" fill="#edce70" stroke={ink}/><circle cx="55" cy="29" r="4" fill="#8bb99b" stroke={ink}/><Text x={71} y={35} size={14}>小克剪辑_最终版_打死不改(3).mp4</Text><rect x="545" y="17" width="145" height="25" rx="4" fill="#3e3a34"/><Text x={617} y={35} size={15} fill={paper} anchor="middle">00:00:{String(Math.floor(t)).padStart(2,'0')}:29</Text><Text x={713} y={34} size={12} fill="#9c978b">• 已自动保存</Text><Box x={1010} y={19} w={63} h={20} r={5}/><Text x={1041} y={34} size={12} anchor="middle">1080P</Text><Box x={1085} y={18} w={163} h={22} fill={t>23?'#edce6b':'#88c6b7'} r={5}/><Text x={1166} y={34} size={14} anchor="middle" fill={t>23?ink:'white'}>{t>23&&t<25.7?`渲染中 ${Math.min(99,Math.round(mix(t,23,25.7,3,99)))}%`:'↥ 导出'}</Text>
- {t>.7&&<g opacity={mix(t,.7,1.1,0,1)}><Panel t={t}/><Phone t={t} kind={kind} transition={t>9.1&&t<10} caption={t>11.5&&t<14.5} ending={t>27}/><Settings t={t}/><Timeline t={t}/></g>}
- {t<.7&&<path d="M21,426 V70 Q23,64 37,65 H267" fill="none" stroke={ink} strokeWidth="2"/>}
- {t>.5&&<Bot x={bx} y={by} scale={t<6?.95:.86} arm={arm} happy={t>19} dance={t>19?t*2:0}/>}
- {t>7.2&&t<8.7&&<Burst x={333} y={352}>刷！</Burst>}{t>9.8&&t<10.8&&<Burst x={310} y={362}>空心入网!</Burst>}{t>12.2&&t<13.2&&<g transform="rotate(-12 917 258)"><rect x="844" y="237" width="150" height="46" rx="3" fill="none" stroke="#71a47a" strokeWidth="3"/><Text x={919} y={270} size={30} fill="#71a47a" anchor="middle" bold>已修正</Text></g>}
- {t>13&&t<14.1&&<g><Box x={400} y={561} w={118} h={60} fill="#fffbee"/><Text x={459} y={603} size={25} anchor="middle" bold>Ctrl+Z</Text></g>}
- {t>20&&t<21.8&&Array.from({length:12},(_,i)=><Star key={i} x={693+Math.sin(i*2.5+t)*92} y={222+Math.cos(i*2.5+t)*90} s={5+i%3*3} color={i%2?'#e9a7b7':'#f0d16a'}/>)}
- </g>
- {ending&&<g opacity={mix(t,25.5,26.2,0,.79)}><rect width="1280" height="720" fill={paper}/></g>}
- {ending&&<g opacity={mix(t,25.8,26.5,0,1)} transform={`translate(0 ${mix(t,25.8,26.5,26,0)})`}><g transform="translate(-42 4)"><Phone t={t} kind={kind} transition={false} caption={false} ending={t>27}/></g><g transform="rotate(-2 315 328)"><Box x={125} y={179} w={290} h={327} fill="#fffdf7"/><Text x={148} y={253} size={27}>30 秒剪完，</Text>{t>27&&<><Text x={270} y={346} size={59} anchor="middle" bold>Opus 5.5</Text><path d="M145 363 Q269 352 393 363" stroke="#d77a72" strokeWidth="4" fill="none"/></>}<Text x={148} y={454} size={19} fill="#999081">灵感到成片，一气呵成。</Text></g><Bot x={1007} y={578} scale={1.1} happy dance={t*3}/>{t>27&&Array.from({length:28},(_,i)=><g key={i} transform={`translate(${440+(i*71)%460} ${95+((t-27)*35+i*39)%450}) rotate(${i*33+t*25})`}><rect width="4" height="10" fill={['#b9a8cf','#dab862','#9bb6a4','#b5766b'][i%4]}/></g>)}</g>}
- <rect width="1280" height="720" fill="url(#paperGrain)" pointerEvents="none"/>
- </svg></AbsoluteFill>;
+  const [fontHandle] = useState(() =>
+    delayRender("Loading bundled Chinese lettering"),
+  );
+  useEffect(() => {
+    const glyphs =
+      "小克剪辑最终版打死不改已自动保存素材转场文字夜景拉面柴犬蹦迪导入旋转翻页故障缩放滑动溶解前方高能预警好耶霓虹调整闪光饱和度随机抖动速度已修正空心入网渲染中秒剪完灵感到成片一气呵成拿捏了Opus 5.5 Ctrl+Z";
+    Promise.all([
+      document.fonts.load('500 18px "LXGW WenKai"', glyphs),
+      document.fonts.load('700 24px "LXGW WenKai"', glyphs),
+    ])
+      .then(() => continueRender(fontHandle))
+      .catch(cancelRender);
+  }, [fontHandle]);
+  const f = useCurrentFrame(),
+    t = f / 30;
+  const seg = cameraKeys.findIndex(
+    (k, i) => i < cameraKeys.length - 1 && t >= k.t && t < cameraKeys[i + 1].t,
+  );
+  const a = cameraKeys[seg < 0 ? cameraKeys.length - 1 : seg],
+    b = cameraKeys[seg < 0 ? cameraKeys.length - 1 : seg + 1];
+  const camera = {
+    z: a === b ? a.z : mix(t, a.t, b.t, a.z, b.z),
+    x: a === b ? a.x : mix(t, a.t, b.t, a.x, b.x),
+    y: a === b ? a.y : mix(t, a.t, b.t, a.y, b.y),
+  };
+  const kind: SceneKind =
+    t < 7
+      ? "night"
+      : t < 10.8
+        ? "ramen"
+        : t < 14.5
+          ? "cat"
+          : t < 25.5
+            ? "dance"
+            : t < 27
+              ? "night"
+              : t < 28
+                ? "ramen"
+                : t < 29
+                  ? "cat"
+                  : "dance";
+  const bx =
+    t < 2
+      ? mix(t, 0.4, 1, 170, 180)
+      : t < 6
+        ? mix(t, 2, 5, 180, 210)
+        : t < 11
+          ? 200
+          : t < 14
+            ? mix(t, 11, 13, 210, 340)
+            : t < 19
+              ? mix(t, 14, 16, 310, 440)
+              : t < 22
+                ? mix(t, 19, 21, 440, 730)
+                : t < 25
+                  ? mix(t, 22, 24, 730, 880)
+                  : mix(t, 25, 27, 880, 1030);
+  const by =
+    t < 6
+      ? mix(t, 0.6, 1.2, 190, 487)
+      : t < 11
+        ? 493
+        : t < 14
+          ? 495
+          : t < 19
+            ? 499
+            : t < 22
+              ? mix(t, 19, 21, 499, 620)
+              : t < 25
+                ? 493
+                : 624;
+  let arm: [number, number] | undefined =
+    t < 1.6
+      ? [106, 125]
+      : t < 3
+        ? [205, 155]
+        : t < 6
+          ? undefined
+          : t < 8
+            ? [90, 151]
+            : t < 10.6
+              ? [210, 152]
+              : t < 12.5
+                ? [150, 152]
+                : t < 14.5
+                  ? undefined
+                  : t < 17
+                    ? [1196, 217]
+                    : t < 19
+                      ? [1184, 292]
+                      : t < 21
+                        ? undefined
+                        : t < 23
+                          ? [1180, 364]
+                          : t < 25
+                            ? [1203, 30]
+                            : undefined;
+  const ending = t >= 25.5;
+  return (
+    <AbsoluteFill
+      style={{
+        background: paper,
+        fontFamily: '"LXGW WenKai", KaiTi, STKaiti, serif',
+      }}
+    >
+      <Audio src={staticFile("reference-audio.m4a")} />
+      <svg width="1280" height="720" viewBox="0 0 1280 720">
+        <defs>
+          <linearGradient id="nightSky" x2="0" y2="1">
+            <stop stopColor="#313151" />
+            <stop offset="1" stopColor="#545182" />
+          </linearGradient>
+          <linearGradient id="clubSky" x2="0" y2="1">
+            <stop stopColor="#625383" />
+            <stop offset=".6" stopColor="#b17ea7" />
+            <stop offset="1" stopColor="#554a82" />
+          </linearGradient>
+          <pattern
+            id="paperGrain"
+            width="17"
+            height="19"
+            patternUnits="userSpaceOnUse"
+          >
+            <circle cx="2" cy="5" r=".6" fill="#77715c" opacity=".055" />
+            <circle cx="12" cy="14" r=".5" fill="#77715c" opacity=".05" />
+          </pattern>
+        </defs>
+        <g transform={`translate(${camera.x} ${camera.y}) scale(${camera.z})`}>
+          <Box x={7} y={6} w={1265} h={708} r={12} />
+          <Box x={16} y={14} w={1247} h={31} r={6} />
+          <circle cx="29" cy="29" r="4" fill="#d4756b" stroke={ink} />
+          <circle cx="42" cy="29" r="4" fill="#edce70" stroke={ink} />
+          <circle cx="55" cy="29" r="4" fill="#8bb99b" stroke={ink} />
+          <Text x={71} y={35} size={14}>
+            小克剪辑_最终版_打死不改(3).mp4
+          </Text>
+          <rect x="545" y="17" width="145" height="25" rx="4" fill="#3e3a34" />
+          <Text x={617} y={35} size={15} fill={paper} anchor="middle">
+            00:00:{String(Math.floor(t)).padStart(2, "0")}:29
+          </Text>
+          <Text x={713} y={34} size={12} fill="#9c978b">
+            • 已自动保存
+          </Text>
+          <Box x={1010} y={19} w={63} h={20} r={5} />
+          <Text x={1041} y={34} size={12} anchor="middle">
+            1080P
+          </Text>
+          <Box
+            x={1085}
+            y={18}
+            w={163}
+            h={22}
+            fill={t > 23 ? "#edce6b" : "#88c6b7"}
+            r={5}
+          />
+          <Text
+            x={1166}
+            y={34}
+            size={14}
+            anchor="middle"
+            fill={t > 23 ? ink : "white"}
+          >
+            {t > 23 && t < 25.7
+              ? `渲染中 ${Math.min(99, Math.round(mix(t, 23, 25.7, 3, 99)))}%`
+              : "↥ 导出"}
+          </Text>
+          {t > 0.7 && (
+            <g opacity={mix(t, 0.7, 1.1, 0, 1)}>
+              <Panel t={t} />
+              <Phone
+                t={t}
+                kind={kind}
+                transition={t > 9.1 && t < 10}
+                caption={t > 11.5 && t < 14.5}
+                ending={t > 27}
+              />
+              <Settings t={t} />
+              <Timeline t={t} />
+            </g>
+          )}
+          {t < 0.7 && (
+            <path
+              d="M21,426 V70 Q23,64 37,65 H267"
+              fill="none"
+              stroke={ink}
+              strokeWidth="2"
+            />
+          )}
+          {t > 0.5 && (
+            <Bot
+              x={bx}
+              y={by}
+              scale={t < 6 ? 0.95 : 0.86}
+              arm={arm}
+              happy={t > 19}
+              dance={t > 19 ? t * 2 : 0}
+            />
+          )}
+          {t > 7.2 && t < 8.7 && (
+            <Burst x={333} y={352}>
+              刷！
+            </Burst>
+          )}
+          {t > 9.8 && t < 10.8 && (
+            <Burst x={310} y={362}>
+              空心入网!
+            </Burst>
+          )}
+          {t > 12.2 && t < 13.2 && (
+            <g transform="rotate(-12 917 258)">
+              <rect
+                x="844"
+                y="237"
+                width="150"
+                height="46"
+                rx="3"
+                fill="none"
+                stroke="#71a47a"
+                strokeWidth="3"
+              />
+              <Text
+                x={919}
+                y={270}
+                size={30}
+                fill="#71a47a"
+                anchor="middle"
+                bold
+              >
+                已修正
+              </Text>
+            </g>
+          )}
+          {t > 13 && t < 14.1 && (
+            <g>
+              <Box x={400} y={561} w={118} h={60} fill="#fffbee" />
+              <Text x={459} y={603} size={25} anchor="middle" bold>
+                Ctrl+Z
+              </Text>
+            </g>
+          )}
+          {t > 20 &&
+            t < 21.8 &&
+            Array.from({ length: 12 }, (_, i) => (
+              <Star
+                key={i}
+                x={693 + Math.sin(i * 2.5 + t) * 92}
+                y={222 + Math.cos(i * 2.5 + t) * 90}
+                s={5 + (i % 3) * 3}
+                color={i % 2 ? "#e9a7b7" : "#f0d16a"}
+              />
+            ))}
+        </g>
+        {ending && (
+          <g opacity={mix(t, 25.5, 26.2, 0, 0.79)}>
+            <rect width="1280" height="720" fill={paper} />
+          </g>
+        )}
+        {ending && (
+          <g
+            opacity={mix(t, 25.8, 26.5, 0, 1)}
+            transform={`translate(0 ${mix(t, 25.8, 26.5, 26, 0)})`}
+          >
+            <g transform="translate(-355 45) scale(1.4)">
+              <Phone
+                t={t}
+                kind={kind}
+                transition={false}
+                caption={kind === "cat"}
+                ending={t > 29}
+                final
+              />
+            </g>
+            <g transform="rotate(-2 225 328)">
+              <Box x={45} y={165} w={360} h={327} fill="#fffdf7" />
+              <rect
+                x="175"
+                y="160"
+                width="96"
+                height="20"
+                fill="#eaca65"
+                opacity=".8"
+              />
+              {[0, 1, 2, 3, 4, 5].map((i) => (
+                <path
+                  key={i}
+                  d={`M62 ${220 + i * 45} H390`}
+                  stroke="#eae5db"
+                  strokeWidth="1"
+                />
+              ))}
+              <Text x={75} y={240} size={33}>
+                30 秒剪完，
+              </Text>
+              {t > 28.2 && (
+                <>
+                  <Text x={225} y={346} size={59} anchor="middle" bold>
+                    Opus 5.5
+                  </Text>
+                  <path
+                    d="M75 363 Q225 352 375 363"
+                    stroke="#d77a72"
+                    strokeWidth="4"
+                    fill="none"
+                  />
+                </>
+              )}
+            </g>
+            <Bot x={1020} y={520} scale={1.35} happy dance={t * 3} />
+            {t > 27 &&
+              Array.from({ length: 28 }, (_, i) => (
+                <g
+                  key={i}
+                  transform={`translate(${440 + ((i * 71) % 460)} ${95 + (((t - 27) * 35 + i * 39) % 450)}) rotate(${i * 33 + t * 25})`}
+                >
+                  <rect
+                    width="4"
+                    height="10"
+                    fill={["#b9a8cf", "#dab862", "#9bb6a4", "#b5766b"][i % 4]}
+                  />
+                </g>
+              ))}
+          </g>
+        )}
+        <rect
+          width="1280"
+          height="720"
+          fill="url(#paperGrain)"
+          pointerEvents="none"
+        />
+      </svg>
+    </AbsoluteFill>
+  );
 };
